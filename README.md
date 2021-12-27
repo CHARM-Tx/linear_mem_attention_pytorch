@@ -1,6 +1,6 @@
 # Attention for PyTorch with Linear Memory Footprint
 
-Unofficially implements https://arxiv.org/abs/2112.05682 to get linear memory cost on attention (+ some sidekick speedup)
+Unofficially implements https://arxiv.org/abs/2112.05682 to get **Linear Memory Cost on Attention** (+ some sidekick speedup on the GPU when compared to reference implementation in `JAX`)
 
 ### Usage: 
 
