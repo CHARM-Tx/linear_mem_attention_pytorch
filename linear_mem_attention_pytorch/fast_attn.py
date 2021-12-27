@@ -31,5 +31,5 @@ class Attention(torch.nn.Module):
 
         out = attention(q, k, v, mask, query_chunk_size, key_chunk_size)
 
-        out = rearrange(out, 'b h n d -> b n (h d)', h = h)
+        out = rearrange(out, 'b n h d -> b n (h d)', h = h)
         return self.to_out(out)

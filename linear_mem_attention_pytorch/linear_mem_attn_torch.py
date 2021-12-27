@@ -28,7 +28,8 @@ def query_chunk_attention(
         attn_weights = torch.einsum('bqhd,bkhd->bqhk', query, key)
         if mask is not None:
             max_neg = -torch.finfo(attn_weights.dtype).max
-            attn_weights[~mask[:, None, None, :]] = max_neg
+            attn_weights.masked_fill_(~mask[:, None, None, :], max_neg) 
+
         max_score = torch.amax(attn_weights, dim=-1, keepdim=True).detach()
         exp_weights = torch.exp(attn_weights - max_score)
         exp_values = torch.einsum('bvhf,bqhv->bqhf', value, exp_weights)
@@ -45,13 +46,11 @@ def query_chunk_attention(
             value, (chunk_idx, 0, 0),
             slice_sizes=(key_chunk_size, num_heads, v_features)
         )
-        mask_chunk = dynamic_slice(
-            value, (chunk_idx, 0, 0),
-            slice_sizes=(key_chunk_size, num_heads, v_features)
-        ) if mask is not None else None
+        mask_chunk = mask[:, chunk_idx: chunk_idx+key_chunk_size] \
+                     if mask is not None else None
 
-        return checkpoint(
-            summarize_chunk(query, key_chunk, value_chunk, mask_chunk)
+        return checkpoint.checkpoint(
+            summarize_chunk, query, key_chunk, value_chunk, mask_chunk
         )
 
     chunk_iter = list(range(0, num_kv, key_chunk_size))

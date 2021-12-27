@@ -4,11 +4,11 @@ import torch
 
 from linear_mem_attention_pytorch import *
 from linear_mem_attention_pytorch.utils import qkv2res
-from linear_mem_attention_torch.fast_attn import Attention
+from linear_mem_attention_pytorch.fast_attn import Attention
 
 
 def test_torch_attn(): 
-    B, L, D = 1, 2**14, 64
+    B, L, D = 1, 2**10, 64
     a = torch.randn(B, L, D) # .cuda()
     b = a[:, None, :, :]                      # (b h n d) batch and heads
     b_ = torch.transpose(a, 0, 1)[None, ...]
@@ -18,6 +18,7 @@ def test_torch_attn():
     assert torch.allclose(
         attention(b_, b_, b_)[0], # .shape b n h d
         attention(c_, c_, c_)[0], # .shape b n h d
+        atol=1e-6,
     ), "Batching does not work"
 
     # test query chunking works
@@ -47,7 +48,7 @@ def test_fast_attn():
     x, ctx = torch.randn(2, batch, length, features)
     mask = torch.randn(batch, length) < 1.
 
-    attn = Attention(dim=D, heads = 8, dim_head = 64, bias=False)
+    attn = Attention(dim=features, heads = 8, dim_head = 64, bias=False)
 
     # self-attn
     v_self = attn(x, x, mask, query_chunk_size=1024, key_chunk_size=4096)

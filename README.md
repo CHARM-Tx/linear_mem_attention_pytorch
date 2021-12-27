@@ -14,7 +14,7 @@ batch, length, features = 2, 2**8, 64
 x, ctx = torch.randn(2, batch, length, features)
 mask = torch.randn(batch, length) < 1.
 
-attn = Attention(dim=D, heads = 8, dim_head = 64, bias=False)
+attn = Attention(dim=features, heads = 8, dim_head = 64, bias=False)
 
 # self-attn
 v_self = attn(x, x, mask, query_chunk_size=1024, key_chunk_size=4096)
