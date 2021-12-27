@@ -7,6 +7,9 @@ __pycache__/
 *.DS_Store
 *.pkl
 
+#PyCharm
+.idea/*
+
 # C extensions
 *.so
 
