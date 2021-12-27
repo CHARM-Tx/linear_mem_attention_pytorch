@@ -1,11 +1,18 @@
 # Attention for PyTorch with Linear Memory Footprint
 
-Implements https://arxiv.org/abs/2112.05682 to get linear memory cost on attention
+Unofficially implements https://arxiv.org/abs/2112.05682 to get linear memory cost on attention (+ some sidekick speedup)
 
+### Usage: 
 
-### Usage:
+```
+git clone https://github.com/CHARM-Tx/linear_mem_attention_pytorch
+cd linear_mem_attention_pytorch
+python setup.py install 
+```
 
-#### High Level
+## Usage:
+
+### High Level
 
 ```python
 from linear_mem_attention_torch.fast_attn import Attention
@@ -23,7 +30,7 @@ v_self = attn(x, x, mask, query_chunk_size=1024, key_chunk_size=4096)
 v_cross = attn(x, ctx, mask, query_chunk_size=1024, key_chunk_size=4096)
 ```
 
-#### Low level
+### Low level
 
 ```python
 from linear_mem_attention_torch import attention
@@ -35,6 +42,11 @@ q, k, v = torch.randn(3, batch, length, heads, features)
 v_ = attention(q, k, v, mask, query_chunk_size=1024, key_chunk_size=4096)
 ```
 
+
+## Benchmarks
+
+* soon: provide `seq_len`, `time_cpu_jax`, `time_cpu_torch`, `time_cpu_base`, `time_gpu_jax`, `time_gpu_torch`, `time_gpu_base`
+	* uses `torch.einsum` for `bihd,bjhd->bihj` and `bihj,bjhd->bihd` as a reference baseline
 
 ## Citations:
 

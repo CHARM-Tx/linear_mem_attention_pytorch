@@ -14,6 +14,7 @@ def query_chunk_attention(
     key_chunk_size: int = 4096
 ) -> torch.Tensor:
     """Multi-head dot product attention with a limited number of queries."""
+    device, dtype = query.device, query.dtype
     batch, num_kv, num_heads, k_features = key.shape
     v_features = value.shape[-1]
     query_chunk = query.shape[1] # b n h d
@@ -54,9 +55,9 @@ def query_chunk_attention(
         )
 
     chunk_iter = list(range(0, num_kv, key_chunk_size))
-    chunk_values = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads, v_features).to(query)
-    chunk_weights = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads).to(query)
-    chunk_max = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads, 1).to(query)
+    chunk_values = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads, v_features, dtype=dtype, device=device)
+    chunk_weights = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads, dtype=dtype, device=device)
+    chunk_max = torch.zeros(num_kv//key_chunk_size, batch, query_chunk, num_heads, 1, dtype=dtype, device=device)
     for i, xi in enumerate(chunk_iter):
         chunk_values[i], chunk_weights[i], chunk_max[i] = chunk_scanner(xi)
 
