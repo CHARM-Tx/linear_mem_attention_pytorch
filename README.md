@@ -45,8 +45,9 @@ v_ = attention(q, k, v, mask, query_chunk_size=1024, key_chunk_size=4096)
 
 ## Benchmarks
 
-* soon: provide `seq_len`, `time_cpu_jax`, `time_cpu_torch`, `time_cpu_base`, `time_gpu_jax`, `time_gpu_torch`, `time_gpu_base`
-	* uses `torch.einsum` for `bihd,bjhd->bihj` and `bihj,bjhd->bihd` as a reference baseline
+![Runtime CPU and GPU plots](examples/runtimes.png)
+
+See `examples/example_benchamrk.ipynb` for more information.
 
 ## Citations:
 
