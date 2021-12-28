@@ -41,14 +41,8 @@ def query_chunk_attention(
     def chunk_scanner(
         chunk_idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        key_chunk = dynamic_slice(
-            key, (chunk_idx, 0, 0), slice_sizes=(key_chunk_size, num_heads, k_features)
-        )
-        value_chunk = dynamic_slice(
-            value,
-            (chunk_idx, 0, 0),
-            slice_sizes=(key_chunk_size, num_heads, v_features),
-        )
+        key_chunk = key[:, chunk_idx : chunk_idx + key_chunk_size]
+        value_chunk = value[:, chunk_idx : chunk_idx + key_chunk_size]
         mask_chunk = (
             mask[:, chunk_idx : chunk_idx + key_chunk_size]
             if mask is not None
@@ -119,11 +113,7 @@ def attention(
     batch, num_q, num_heads, q_features = query.shape
 
     def chunk_scanner(chunk_idx: int, _):
-        query_chunk = dynamic_slice(
-            query,
-            (chunk_idx, 0, 0),
-            slice_sizes=(min(query_chunk_size, num_q), num_heads, q_features),
-        )
+        query_chunk = query[:, chunk_idx : chunk_idx + query_chunk_size]
         return (
             chunk_idx + query_chunk_size,
             query_chunk_attention(
