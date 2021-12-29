@@ -30,32 +30,32 @@ def query_chunk_attention(
         attn_weights = torch.einsum("bqhd,bkhd->bqhk", query, key)
         if mask is not None:
             max_neg = -torch.finfo(attn_weights.dtype).max
-            attn_weights.masked_fill_(~mask[:, None, None, :], max_neg)
+            attn_weights.masked_fill_(~mask.unsqueeze(1).unsqueeze(2), max_neg)
 
         max_score = torch.amax(attn_weights, dim=-1, keepdim=True).detach()
         exp_weights = torch.exp(attn_weights - max_score)
         exp_values = torch.einsum("bvhf,bqhv->bqhf", value, exp_weights)
         # (b q h f), (b q h), (b q h 1)
-        return exp_values, exp_weights.sum(dim=-1), max_score
+        return exp_values, exp_weights.sum(dim=-1, keepdim=True), max_score
 
     def chunk_scanner(
         chunk_idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+
         key_chunk = key[:, chunk_idx : chunk_idx + key_chunk_size]
         value_chunk = value[:, chunk_idx : chunk_idx + key_chunk_size]
-        mask_chunk = (
-            mask[:, chunk_idx : chunk_idx + key_chunk_size]
-            if mask is not None
-            else None
-        )
+
+        mask_chunk = None
+        if mask is not None:
+            mask_chunk = mask[:, chunk_idx : chunk_idx + key_chunk_size]
 
         return checkpoint.checkpoint(
             summarize_chunk, query, key_chunk, value_chunk, mask_chunk
         )
 
-    chunk_iter = list(range(0, num_kv, key_chunk_size))
+    num_chunks = math.ceil(num_kv / key_chunk_size)
     chunk_values = torch.zeros(
-        num_kv // key_chunk_size,
+        num_chunks,
         batch,
         query_chunk,
         num_heads,
@@ -64,15 +64,7 @@ def query_chunk_attention(
         device=device,
     )
     chunk_weights = torch.zeros(
-        num_kv // key_chunk_size,
-        batch,
-        query_chunk,
-        num_heads,
-        dtype=dtype,
-        device=device,
-    )
-    chunk_max = torch.zeros(
-        num_kv // key_chunk_size,
+        num_chunks,
         batch,
         query_chunk,
         num_heads,
@@ -80,17 +72,25 @@ def query_chunk_attention(
         dtype=dtype,
         device=device,
     )
-    for i, xi in enumerate(chunk_iter):
-        chunk_values[i], chunk_weights[i], chunk_max[i] = chunk_scanner(xi)
+    chunk_max = torch.zeros(
+        num_chunks,
+        batch,
+        query_chunk,
+        num_heads,
+        1,
+        dtype=dtype,
+        device=device,
+    )
+    for i in range(num_chunks):
+        chunk_values[i], chunk_weights[i], chunk_max[i] = chunk_scanner(
+            num_chunks * key_chunk_size
+        )
 
     global_max = torch.amax(chunk_max, dim=0, keepdim=True)
     max_diffs = torch.exp(chunk_max - global_max)
 
-    chunk_values *= max_diffs
-    chunk_weights *= max_diffs[..., 0]
-
-    all_values = chunk_values.sum(dim=0)
-    all_weights = torch.unsqueeze(chunk_weights, -1).sum(dim=0)
+    all_values = (max_diffs * chunk_values).sum(dim=0)
+    all_weights = (max_diffs * chunk_weights).sum(dim=0)
     return all_values / all_weights
 
 
