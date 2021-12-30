@@ -4,7 +4,7 @@ import torch
 from torch.utils import checkpoint
 from typing import Tuple, Optional
 
-from .utils import dynamic_slice, torch_map, torch_scan
+from .utils import dynamic_length_slice, dynamic_slice, torch_map, torch_scan
 
 
 def query_chunk_attention(
@@ -36,18 +36,18 @@ def query_chunk_attention(
         exp_weights = torch.exp(attn_weights - max_score)
         exp_values = torch.einsum("bvhf,bqhv->bqhf", value, exp_weights)
         # (b q h f), (b q h), (b q h 1)
-        return exp_values, exp_weights.sum(dim=-1, keepdim=True), max_score
+        return exp_values, exp_weights.sum(dim=-1), max_score.squeeze(dim=-1)
 
     def chunk_scanner(
         chunk_idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-        key_chunk = key[:, chunk_idx : chunk_idx + key_chunk_size]
-        value_chunk = value[:, chunk_idx : chunk_idx + key_chunk_size]
+        key_chunk = dynamic_length_slice(key, chunk_idx, key_chunk_size)
+        value_chunk = dynamic_length_slice(value, chunk_idx, key_chunk_size)
 
         mask_chunk = None
         if mask is not None:
-            mask_chunk = mask[:, chunk_idx : chunk_idx + key_chunk_size]
+            mask_chunk = dynamic_length_slice(value, chunk_idx, key_chunk_size)
 
         return checkpoint.checkpoint(
             summarize_chunk, query, key_chunk, value_chunk, mask_chunk
@@ -68,7 +68,6 @@ def query_chunk_attention(
         batch,
         query_chunk,
         num_heads,
-        1,
         dtype=dtype,
         device=device,
     )
@@ -77,20 +76,18 @@ def query_chunk_attention(
         batch,
         query_chunk,
         num_heads,
-        1,
         dtype=dtype,
         device=device,
     )
     for i in range(num_chunks):
         chunk_values[i], chunk_weights[i], chunk_max[i] = chunk_scanner(
-            num_chunks * key_chunk_size
+            i * key_chunk_size
         )
 
-    global_max = torch.amax(chunk_max, dim=0, keepdim=True)
-    max_diffs = torch.exp(chunk_max - global_max)
+    max_diffs = torch.exp(chunk_max - chunk_max.amax(dim=0))
 
-    all_values = (max_diffs * chunk_values).sum(dim=0)
-    all_weights = (max_diffs * chunk_weights).sum(dim=0)
+    all_values = (max_diffs.unsqueeze(dim=-1) * chunk_values).sum(dim=0)
+    all_weights = (max_diffs * chunk_weights).sum(dim=0).unsqueeze(dim=-1)
     return all_values / all_weights
 
 
@@ -113,7 +110,8 @@ def attention(
     batch, num_q, num_heads, q_features = query.shape
 
     def chunk_scanner(chunk_idx: int, _):
-        query_chunk = query[:, chunk_idx : chunk_idx + query_chunk_size]
+        query_chunk = dynamic_length_slice(query, chunk_idx, query_chunk_size)
+
         return (
             chunk_idx + query_chunk_size,
             query_chunk_attention(

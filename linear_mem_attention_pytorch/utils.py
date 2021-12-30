@@ -12,9 +12,23 @@ def qkv2res(q, k, v):
 
 
 @torch.jit.script
+def dynamic_length_slice(
+    x: torch.Tensor, start: int = 0, size: int = 1024
+) -> torch.Tensor:
+    """Slices a tensor along the second axis.
+    Ex: (b n h d) -> (b n[start:start+size] h d)
+    """
+    # avoid slicing overhead if not needed
+    if start == 0 and start + size >= x.shape[1]:
+        return x
+    else:
+        return x[:, start : start + size]
+
+
+@torch.jit.script
 def dynamic_slice(
     x: torch.Tensor,
-    slices: Tuple[int, int, int],
+    start: Tuple[int, int, int],
     slice_sizes: Tuple[int, int, int],
 ) -> torch.Tensor:
     """approx like jax.lax.dynamic_slice.
@@ -28,9 +42,9 @@ def dynamic_slice(
     """
     return x[
         :,
-        slices[0] : slices[0] + slice_sizes[0],
-        slices[1] : slices[1] + slice_sizes[1],
-        slices[2] : slices[2] + slice_sizes[2],
+        start[0] : start[0] + slice_sizes[0],
+        start[1] : start[1] + slice_sizes[1],
+        start[2] : start[2] + slice_sizes[2],
     ]
 
 
