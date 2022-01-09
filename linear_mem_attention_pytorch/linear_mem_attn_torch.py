@@ -47,7 +47,7 @@ def query_chunk_attention(
 
         mask_chunk = None
         if mask is not None:
-            mask_chunk = dynamic_length_slice(value, chunk_idx, key_chunk_size)
+            mask_chunk = dynamic_length_slice(mask, chunk_idx, key_chunk_size)
 
         return checkpoint.checkpoint(
             summarize_chunk, query, key_chunk, value_chunk, mask_chunk
