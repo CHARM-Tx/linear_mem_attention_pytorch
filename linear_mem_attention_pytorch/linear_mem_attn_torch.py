@@ -30,7 +30,7 @@ def query_chunk_attention(
         attn_weights = torch.einsum("bqhd,bkhd->bqhk", query, key)
         if mask is not None:
             max_neg = -torch.finfo(attn_weights.dtype).max
-            mask = mask.type(torch.bool)
+            if mask.dtype != torch.bool: mask = mask.bool()
             attn_weights.masked_fill_(~mask.unsqueeze(1).unsqueeze(2), max_neg)
 
         max_score = torch.amax(attn_weights, dim=-1, keepdim=True).detach()
